@@ -5,73 +5,116 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registro de Ingreso y Egreso</title>
     <style>
+        /* Fuente moderna */
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
+
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa, #c3cfe2);
             display: flex;
             flex-direction: column;
             align-items: center;
-            margin: 20px;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
         }
 
         .container {
             background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
             text-align: center;
+            width: 100%;
+            max-width: 500px;
             margin-bottom: 20px;
+            animation: fadeIn 0.5s ease-in-out;
         }
 
         h2 {
             color: #333;
+            font-weight: 600;
+            margin-bottom: 20px;
         }
 
         input {
-            padding: 10px;
-            width: 80%;
+            padding: 12px;
+            width: 100%;
             margin: 10px 0;
-            border: 1px solid #ccc;
-            border-radius: 5px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        input:focus {
+            border-color: #28a745;
+            outline: none;
         }
 
         .btn-container {
             display: flex;
             justify-content: center;
             gap: 10px;
-            align-items: center;
+            margin-top: 20px;
         }
 
         button {
-            padding: 10px 15px;
+            padding: 12px 20px;
             border: none;
-            border-radius: 5px;
+            border-radius: 8px;
             color: white;
             cursor: pointer;
-            margin: 5px;
-            display: inline-block;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
         }
 
         .btn-ingreso {
             background-color: #28a745;
         }
 
+        .btn-ingreso:hover {
+            background-color: #218838;
+        }
+
         .btn-egreso {
             background-color: #dc3545;
         }
 
-        button:hover {
-            opacity: 0.8;
+        .btn-egreso:hover {
+            background-color: #c82333;
+        }
+
+        .totales {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #555;
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .totales p {
+            margin: 5px 0;
         }
 
         .table-container {
-            width: 80%;
             background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 800px;
             max-height: 400px;
             overflow-y: auto;
+            animation: fadeIn 0.5s ease-in-out;
         }
 
         table {
@@ -80,56 +123,67 @@
         }
 
         th, td {
-            padding: 10px;
+            padding: 12px;
             text-align: left;
             border-bottom: 1px solid #ddd;
         }
 
         th {
             background-color: #f4f4f4;
+            font-weight: 600;
+            color: #333;
+        }
+
+        tr:hover {
+            background-color: #f9f9f9;
         }
 
         #loading {
             display: none;
             text-align: center;
             margin: 20px;
+            font-size: 18px;
+            color: #555;
         }
 
         #error-message {
-            color: red;
+            color: #dc3545;
             display: none;
             margin: 10px 0;
             padding: 10px;
-            border-radius: 5px;
+            border-radius: 8px;
             background-color: #ffe6e6;
+            font-size: 14px;
         }
 
         #success-message {
-            color: green;
+            color: #28a745;
             display: none;
             margin: 10px 0;
             padding: 10px;
-            border-radius: 5px;
+            border-radius: 8px;
             background-color: #e6ffe6;
+            font-size: 14px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         @media (max-width: 600px) {
             .container, .table-container {
-                width: 100%;
-                padding: 10px;
+                padding: 20px;
             }
-            input, button {
+
+            button {
                 width: 100%;
+                margin: 5px 0;
             }
-        }
 
-        .fade-in {
-            animation: fadeIn 0.5s;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+            .btn-container {
+                flex-direction: column;
+            }
         }
     </style>
 </head>
@@ -137,13 +191,16 @@
     <div class="container">
         <h2>Registro de Ingreso y Egreso</h2>
         <input type="text" id="nombre" placeholder="Ingrese su nombre" required aria-label="Nombre">
-        <br>
         <div class="btn-container">
             <button class="btn-ingreso" onclick="registrar('Ingreso')" aria-label="Registrar Ingreso">Registrar Ingreso</button>
             <button class="btn-egreso" onclick="registrar('Egreso')" aria-label="Registrar Egreso">Registrar Egreso</button>
         </div>
         <div id="error-message"></div>
         <div id="success-message"></div>
+        <div class="totales">
+            <p>Horas Normales: <span id="horas-normales">0</span> hs</p>
+            <p>Horas Extras: <span id="horas-extras">0</span> hs</p>
+        </div>
     </div>
 
     <div class="table-container">
@@ -155,6 +212,7 @@
                     <th onclick="ordenarRegistros('nombre')">Nombre</th>
                     <th onclick="ordenarRegistros('tipo')">Tipo</th>
                     <th onclick="ordenarRegistros('fechaHora')">Fecha y Hora</th>
+                    <th>Horas Trabajadas</th>
                 </tr>
             </thead>
             <tbody id="tabla-registros">
@@ -165,6 +223,7 @@
 
     <script>
         let registros = [];
+        const HORAS_SEMANALES_NORMALES = 4; // Límite de horas normales por semana
 
         function validarNombre(nombre) {
             const regex = /^[a-zA-Z\s]+$/;
@@ -200,13 +259,32 @@
             }
         }
 
-        function ordenarRegistros(criterio) {
-            registros.sort((a, b) => {
-                if (a[criterio] < b[criterio]) return -1;
-                if (a[criterio] > b[criterio]) return 1;
-                return 0;
+        function calcularHorasTrabajadas(registro) {
+            const fechaRegistro = new Date(registro.fechaHora);
+            const diaSemana = fechaRegistro.getDay(); // 0 (Domingo) a 6 (Sábado)
+            const esDiaLaboral = diaSemana >= 1 && diaSemana <= 5; // Lunes a Viernes
+
+            if (esDiaLaboral) {
+                return 1; // Suponemos 1 hora por registro (puedes ajustar esto)
+            }
+            return 0; // No cuenta horas los fines de semana
+        }
+
+        function actualizarTotales() {
+            let horasNormales = 0;
+            let horasExtras = 0;
+
+            registros.forEach(registro => {
+                const horas = calcularHorasTrabajadas(registro);
+                if (horasNormales < HORAS_SEMANALES_NORMALES) {
+                    horasNormales += horas;
+                } else {
+                    horasExtras += horas;
+                }
             });
-            cargarRegistros();
+
+            document.getElementById('horas-normales').textContent = horasNormales;
+            document.getElementById('horas-extras').textContent = horasExtras;
         }
 
         function cargarRegistros(registrosFiltrados = null) {
@@ -225,12 +303,14 @@
                         <td>${sanitizarEntrada(registro.nombre)}</td>
                         <td>${sanitizarEntrada(registro.tipo)}</td>
                         <td>${sanitizarEntrada(registro.fechaHora)}</td>
+                        <td>${calcularHorasTrabajadas(registro)} hs</td>
                     `;
                     fragment.appendChild(fila);
                 });
 
                 tabla.appendChild(fragment);
                 loading.style.display = 'none';
+                actualizarTotales(); // Actualizar los totales al cargar los registros
             }, 500);
         }
 
