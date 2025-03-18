@@ -91,6 +91,16 @@
             background-color: #c82333;
         }
 
+        .btn-eliminar {
+            background-color: #ff4d4d;
+            padding: 8px 12px;
+            font-size: 14px;
+        }
+
+        .btn-eliminar:hover {
+            background-color: #ff1a1a;
+        }
+
         .totales {
             margin-top: 20px;
             font-size: 18px;
@@ -213,6 +223,7 @@
                     <th onclick="ordenarRegistros('tipo')">Tipo</th>
                     <th onclick="ordenarRegistros('fechaHora')">Fecha y Hora</th>
                     <th>Horas Trabajadas</th>
+                    <th>Acciones</th>
                 </tr>
             </thead>
             <tbody id="tabla-registros">
@@ -287,6 +298,13 @@
             document.getElementById('horas-extras').textContent = horasExtras;
         }
 
+        function eliminarRegistro(index) {
+            registros.splice(index, 1); // Elimina el registro en la posición index
+            guardarRegistros(); // Guarda los cambios en localStorage
+            cargarRegistros(); // Recarga la tabla
+            mostrarExito('Registro eliminado correctamente.');
+        }
+
         function cargarRegistros(registrosFiltrados = null) {
             const tabla = document.getElementById('tabla-registros');
             const loading = document.getElementById('loading');
@@ -297,13 +315,16 @@
                 const fragment = document.createDocumentFragment();
                 const datos = registrosFiltrados || registros;
 
-                datos.forEach((registro) => {
+                datos.forEach((registro, index) => {
                     const fila = document.createElement('tr');
                     fila.innerHTML = `
                         <td>${sanitizarEntrada(registro.nombre)}</td>
                         <td>${sanitizarEntrada(registro.tipo)}</td>
                         <td>${sanitizarEntrada(registro.fechaHora)}</td>
                         <td>${calcularHorasTrabajadas(registro)} hs</td>
+                        <td>
+                            <button class="btn-eliminar" onclick="eliminarRegistro(${index})" aria-label="Eliminar registro">Eliminar</button>
+                        </td>
                     `;
                     fragment.appendChild(fila);
                 });
