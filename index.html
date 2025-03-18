@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro de Ingreso y Egreso</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 20px;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            color: #333;
+        }
+
+        input {
+            padding: 10px;
+            width: 80%;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .btn-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px; /* Espacio entre los botones */
+            align-items: center; /* Alineación vertical */
+        }
+
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            margin: 5px;
+            display: inline-block;
+        }
+
+        .btn-ingreso {
+            background-color: #28a745;
+        }
+
+        .btn-egreso {
+            background-color: #dc3545;
+        }
+
+        button:hover {
+            opacity: 0.8;
+        }
+
+        .table-container {
+            width: 80%;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            max-height: 400px; /* Altura máxima para el contenedor de la tabla */
+            overflow-y: auto; /* Habilitar el desplazamiento vertical */
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #f4f4f4;
+        }
+
+        #loading {
+            display: none;
+            text-align: center;
+            margin: 20px;
+        }
+
+        #error-message {
+            color: red;
+            display: none;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #ffe6e6;
+        }
+
+        #success-message {
+            color: green;
+            display: none;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #e6ffe6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Registro de Ingreso y Egreso</h2>
+        <input type="text" id="nombre" placeholder="Ingrese su nombre" required aria-label="Nombre">
+        <br>
+        <div class="btn-container">
+            <button class="btn-ingreso" onclick="registrar('Ingreso')" aria-label="Registrar Ingreso">Registrar Ingreso</button>
+            <button class="btn-egreso" onclick="registrar('Egreso')" aria-label="Registrar Egreso">Registrar Egreso</button>
+        </div>
+        <div id="error-message"></div>
+        <div id="success-message"></div>
+    </div>
+
+    <div class="table-container">
+        <h2>Historial de Registros</h2>
+        <div id="loading">Cargando...</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Tipo</th>
+                    <th>Fecha y Hora</th>
+                </tr>
+            </thead>
+            <tbody id="tabla-registros">
+                <!-- Aquí se cargarán los registros dinámicamente -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // Arreglo donde se guardarán los registros de ingreso y egreso
+        let registros = [];
+
+        // Función para mostrar errores
+        function mostrarError(mensaje) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = mensaje;
+            errorDiv.style.display = 'block';
+            setTimeout(() => errorDiv.style.display = 'none', 3000); // Ocultar después de 3 segundos
+        }
+
+        // Función para mostrar mensajes de éxito
+        function mostrarExito(mensaje) {
+            const successDiv = document.getElementById('success-message');
+            successDiv.textContent = mensaje;
+            successDiv.style.display = 'block';
+            setTimeout(() => successDiv.style.display = 'none', 3000); // Ocultar después de 3 segundos
+        }
+
+        // Función para registrar ingreso o egreso
+        function registrar(tipo) {
+            const nombre = document.getElementById('nombre').value.trim();
+            if (!nombre) {
+                mostrarError('Por favor, ingrese su nombre.');
+                return;
+            }
+            const fechaHora = new Date().toLocaleString('es-ES', { timeZone: 'America/Argentina/Buenos_Aires' });
+
+            // Agregar el registro al arreglo
+            registros.push({
+                nombre,
+                tipo,
+                fechaHora
+            });
+
+            // Mostrar mensaje de éxito
+            mostrarExito('Registro exitoso');
+            cargarRegistros();
+        }
+
+        // Función para cargar los registros
+        function cargarRegistros() {
+            const tabla = document.getElementById('tabla-registros');
+            const loading = document.getElementById('loading');
+            tabla.innerHTML = '';
+            loading.style.display = 'block';
+
+            setTimeout(() => {
+                const fragment = document.createDocumentFragment();
+
+                registros.forEach((registro) => {
+                    const fila = document.createElement('tr');
+                    fila.innerHTML = `
+                        <td>${registro.nombre}</td>
+                        <td>${registro.tipo}</td>
+                        <td>${registro.fechaHora}</td>
+                    `;
+                    fragment.appendChild(fila);
+                });
+
+                tabla.appendChild(fragment);
+                loading.style.display = 'none';
+            }, 500); // Simula un pequeño retraso para que la carga sea más visible
+        }
+
+        // Cargar registros al iniciar la página
+        document.addEventListener("DOMContentLoaded", cargarRegistros);
+    </script>
+</body>
+</html>
