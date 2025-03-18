@@ -115,6 +115,26 @@
             margin: 5px 0;
         }
 
+        .resumen-semanal {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #555;
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .resumen-semanal h3 {
+            margin-top: 0;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .resumen-semanal p {
+            margin: 5px 0;
+        }
+
         .table-container {
             background: white;
             padding: 30px;
@@ -211,6 +231,12 @@
             <p>Horas Normales: <span id="horas-normales">0</span> hs</p>
             <p>Horas Extras: <span id="horas-extras">0</span> hs</p>
         </div>
+        <div class="resumen-semanal">
+            <h3>Resumen Semanal (Viernes)</h3>
+            <div id="resumen-semanal-contenido">
+                <!-- Aquí se cargará el resumen semanal -->
+            </div>
+        </div>
     </div>
 
     <div class="table-container">
@@ -222,7 +248,7 @@
                     <th onclick="ordenarRegistros('nombre')">Nombre</th>
                     <th onclick="ordenarRegistros('tipo')">Tipo</th>
                     <th onclick="ordenarRegistros('fechaHora')">Fecha y Hora</th>
-                    <th>Horas Trabajadas</th>
+                    <th>Tiempo Trabajado</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
@@ -234,7 +260,7 @@
 
     <script>
         let registros = [];
-        const HORAS_SEMANALES_NORMALES = 4; // Límite de horas normales por semana
+        const HORAS_SEMANALES_NORMALES = 4 * 60; // Límite de horas normales por semana en minutos
 
         function validarNombre(nombre) {
             const regex = /^[a-zA-Z\s]+$/;
@@ -270,32 +296,75 @@
             }
         }
 
-        function calcularHorasTrabajadas(registro) {
-            const fechaRegistro = new Date(registro.fechaHora);
-            const diaSemana = fechaRegistro.getDay(); // 0 (Domingo) a 6 (Sábado)
-            const esDiaLaboral = diaSemana >= 1 && diaSemana <= 5; // Lunes a Viernes
+        function calcularTiempoTrabajado(registros) {
+            let tiempoTotal = 0; // Tiempo en minutos
+            let ingresos = [];
 
-            if (esDiaLaboral) {
-                return 1; // Suponemos 1 hora por registro (puedes ajustar esto)
-            }
-            return 0; // No cuenta horas los fines de semana
-        }
-
-        function actualizarTotales() {
-            let horasNormales = 0;
-            let horasExtras = 0;
-
-            registros.forEach(registro => {
-                const horas = calcularHorasTrabajadas(registro);
-                if (horasNormales < HORAS_SEMANALES_NORMALES) {
-                    horasNormales += horas;
-                } else {
-                    horasExtras += horas;
+            registros.forEach((registro, index) => {
+                if (registro.tipo === "Ingreso") {
+                    ingresos.push(registro);
+                } else if (registro.tipo === "Egreso" && ingresos.length > 0) {
+                    const ingreso = ingresos.pop();
+                    const fechaIngreso = new Date(ingreso.fechaHora);
+                    const fechaEgreso = new Date(registro.fechaHora);
+                    const diferencia = fechaEgreso - fechaIngreso; // Diferencia en milisegundos
+                    tiempoTotal += Math.floor(diferencia / (1000 * 60)); // Convertir a minutos
                 }
             });
 
-            document.getElementById('horas-normales').textContent = horasNormales;
-            document.getElementById('horas-extras').textContent = horasExtras;
+            return tiempoTotal;
+        }
+
+        function formatearTiempo(minutos) {
+            const horas = Math.floor(minutos / 60);
+            const minutosRestantes = minutos % 60;
+            return `${horas} horas y ${minutosRestantes} minutos`;
+        }
+
+        function obtenerViernesSemana(fecha) {
+            const fechaInicio = new Date(fecha);
+            fechaInicio.setHours(0, 0, 0, 0);
+            fechaInicio.setDate(fechaInicio.getDate() - fechaInicio.getDay() + 5); // Viernes de la semana
+            return fechaInicio.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+        }
+
+        function calcularResumenSemanal() {
+            const resumen = {};
+
+            registros.forEach(registro => {
+                const fecha = new Date(registro.fechaHora);
+                const viernesSemana = obtenerViernesSemana(fecha);
+
+                if (!resumen[viernesSemana]) {
+                    resumen[viernesSemana] = { tiempoTotal: 0, tiempoExtras: 0 };
+                }
+
+                const tiempoTrabajado = calcularTiempoTrabajado([registro]);
+                if (resumen[viernesSemana].tiempoTotal < HORAS_SEMANALES_NORMALES) {
+                    resumen[viernesSemana].tiempoTotal += tiempoTrabajado;
+                } else {
+                    resumen[viernesSemana].tiempoExtras += tiempoTrabajado;
+                }
+            });
+
+            return resumen;
+        }
+
+        function mostrarResumenSemanal() {
+            const resumen = calcularResumenSemanal();
+            const resumenContenido = document.getElementById('resumen-semanal-contenido');
+            resumenContenido.innerHTML = '';
+
+            for (const [viernes, datos] of Object.entries(resumen)) {
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <p><strong>Semana del ${viernes}:</strong></p>
+                    <p>Tiempo Normal: ${formatearTiempo(datos.tiempoTotal)}</p>
+                    <p>Tiempo Extra: ${formatearTiempo(datos.tiempoExtras)}</p>
+                    <hr>
+                `;
+                resumenContenido.appendChild(div);
+            }
         }
 
         function eliminarRegistro(index) {
@@ -321,7 +390,7 @@
                         <td>${sanitizarEntrada(registro.nombre)}</td>
                         <td>${sanitizarEntrada(registro.tipo)}</td>
                         <td>${sanitizarEntrada(registro.fechaHora)}</td>
-                        <td>${calcularHorasTrabajadas(registro)} hs</td>
+                        <td>${formatearTiempo(calcularTiempoTrabajado([registro]))}</td>
                         <td>
                             <button class="btn-eliminar" onclick="eliminarRegistro(${index})" aria-label="Eliminar registro">Eliminar</button>
                         </td>
@@ -331,7 +400,7 @@
 
                 tabla.appendChild(fragment);
                 loading.style.display = 'none';
-                actualizarTotales(); // Actualizar los totales al cargar los registros
+                mostrarResumenSemanal(); // Mostrar el resumen semanal
             }, 500);
         }
 
