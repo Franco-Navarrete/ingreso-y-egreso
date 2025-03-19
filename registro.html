@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro de Horario</title>
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            text-align: center;
+            margin: 50px;
+            background-color: #f4f4f9;
+        }
+        .container {
+            max-width: 400px;
+            margin: auto;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+            color: #333;
+        }
+        p {
+            font-size: 18px;
+            color: #555;
+        }
+        button {
+            margin: 10px;
+            padding: 12px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        .ingreso-btn {
+            background: #4CAF50;
+            color: white;
+        }
+        .ingreso-btn:hover {
+            background: #45a049;
+        }
+        .salida-btn {
+            background: #F44336;
+            color: white;
+        }
+        .salida-btn:hover {
+            background: #e53935;
+        }
+        input {
+            padding: 10px;
+            font-size: 16px;
+            margin-bottom: 10px;
+            width: calc(100% - 22px);
+            border: 1px solid #ccc;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Registro de Horario</h2>
+        <input type="text" id="nombre" placeholder="Ingrese su nombre">
+        <p><strong>Nombre:</strong> <span id="nombreMostrado">---</span></p>
+        <p><strong>Hora de Ingreso:</strong> <span id="horaIngreso">--:--:--</span></p>
+        <p><strong>Hora de Salida:</strong> <span id="horaSalida">--:--:--</span></p>
+        <p><strong>Horas Trabajadas:</strong> <span id="horasTrabajadas">0</span></p>
+        <button class="ingreso-btn" onclick="marcarIngreso()">Marcar Ingreso</button>
+        <button class="salida-btn" onclick="marcarSalida()">Marcar Salida</button>
+    </div>
+
+    <script>
+        let ingreso = null;
+        let salida = null;
+
+        function marcarIngreso() {
+            const nombre = document.getElementById("nombre").value.trim();
+            if (nombre === "") {
+                alert("Por favor, ingrese su nombre antes de marcar ingreso.");
+                return;
+            }
+            document.getElementById("nombreMostrado").textContent = nombre;
+            ingreso = new Date();
+            document.getElementById("horaIngreso").textContent = ingreso.toLocaleTimeString();
+            document.getElementById("horaSalida").textContent = "--:--:--";
+            document.getElementById("horasTrabajadas").textContent = "0";
+        }
+
+        function marcarSalida() {
+            if (!ingreso) {
+                alert("Primero debe marcar la hora de ingreso.");
+                return;
+            }
+            salida = new Date();
+            document.getElementById("horaSalida").textContent = salida.toLocaleTimeString();
+            
+            let diferencia = (salida - ingreso) / (1000 * 60 * 60); // Diferencia en horas
+            document.getElementById("horasTrabajadas").textContent = diferencia.toFixed(2);
+        }
+    </script>
+</body>
+</html>
