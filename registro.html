@@ -49,6 +49,13 @@
         .salida-btn:hover {
             background: #e53935;
         }
+        .logout-btn {
+            background: #555;
+            color: white;
+        }
+        .logout-btn:hover {
+            background: #333;
+        }
         input {
             padding: 10px;
             font-size: 16px;
@@ -69,12 +76,35 @@
         <p><strong>Horas Trabajadas:</strong> <span id="horasTrabajadas">0</span></p>
         <button class="ingreso-btn" onclick="marcarIngreso()">Marcar Ingreso</button>
         <button class="salida-btn" onclick="marcarSalida()">Marcar Salida</button>
+        <button class="logout-btn" onclick="cerrarSesion()">Cerrar Sesión</button>
     </div>
 
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
     <script>
+        // Configuración de Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyDf8vATPio8BV9P3EvZ50jDo4W0o5dIbEE",
+            authDomain: "ingreso-y-egreso.firebaseapp.com",
+            projectId: "ingreso-y-egreso",
+            storageBucket: "ingreso-y-egreso.appspot.com",
+            messagingSenderId: "651695534663",
+            appId: "1:651695534663:web:8872a0ccc01fc98ea27762",
+            measurementId: "G-YZGLC6MMYM"
+        };
+
+        // Inicializar Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
         let ingreso = null;
         let salida = null;
 
+        // Marcar ingreso
         function marcarIngreso() {
             const nombre = document.getElementById("nombre").value.trim();
             if (nombre === "") {
@@ -88,6 +118,7 @@
             document.getElementById("horasTrabajadas").textContent = "0";
         }
 
+        // Marcar salida y guardar en Firebase
         function marcarSalida() {
             if (!ingreso) {
                 alert("Primero debe marcar la hora de ingreso.");
@@ -95,9 +126,36 @@
             }
             salida = new Date();
             document.getElementById("horaSalida").textContent = salida.toLocaleTimeString();
-            
+
             let diferencia = (salida - ingreso) / (1000 * 60 * 60); // Diferencia en horas
             document.getElementById("horasTrabajadas").textContent = diferencia.toFixed(2);
+
+            // Guardar en Firebase Firestore
+            const nombre = document.getElementById("nombre").value.trim();
+            const registro = {
+                nombre: nombre,
+                horaIngreso: ingreso.toLocaleTimeString(),
+                horaSalida: salida.toLocaleTimeString(),
+                horasTrabajadas: diferencia.toFixed(2),
+                fecha: new Date().toLocaleDateString()
+            };
+
+            db.collection("registros").add(registro)
+                .then(() => {
+                    console.log("Registro guardado en Firebase");
+                })
+                .catch((error) => {
+                    console.error("Error al guardar en Firebase:", error);
+                });
+        }
+
+        // Cerrar sesión y redirigir a index.html
+        function cerrarSesion() {
+            auth.signOut().then(() => {
+                window.location.href = "index.html"; // Redirigir a index.html
+            }).catch((error) => {
+                console.error("Error al cerrar sesión:", error);
+            });
         }
     </script>
 </body>
