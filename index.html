@@ -3,445 +3,119 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registro de Ingreso y Egreso</title>
+    <title>Registro de Horario</title>
     <style>
-        /* Fuente moderna */
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
-
         body {
             font-family: 'Poppins', sans-serif;
-            background: linear-gradient(135deg, #f5f7fa, #c3cfe2);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-        }
-
-        .container {
-            background: white;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
             text-align: center;
-            width: 100%;
-            max-width: 500px;
-            margin-bottom: 20px;
-            animation: fadeIn 0.5s ease-in-out;
+            margin: 50px;
+            background-color: #f4f4f9;
         }
-
+        .container {
+            max-width: 400px;
+            margin: auto;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+        }
         h2 {
             color: #333;
-            font-weight: 600;
-            margin-bottom: 20px;
         }
-
-        input {
-            padding: 12px;
-            width: 100%;
-            margin: 10px 0;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 16px;
-            transition: border-color 0.3s ease;
+        p {
+            font-size: 18px;
+            color: #555;
         }
-
-        input:focus {
-            border-color: #28a745;
-            outline: none;
-        }
-
-        .btn-container {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin-top: 20px;
-        }
-
         button {
+            margin: 10px;
             padding: 12px 20px;
-            border: none;
-            border-radius: 8px;
-            color: white;
-            cursor: pointer;
             font-size: 16px;
-            font-weight: 500;
-            transition: background-color 0.3s ease, transform 0.2s ease;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s ease;
         }
-
-        button:hover {
-            transform: translateY(-2px);
+        .ingreso-btn {
+            background: #4CAF50;
+            color: white;
         }
-
-        .btn-ingreso {
-            background-color: #28a745;
+        .ingreso-btn:hover {
+            background: #45a049;
         }
-
-        .btn-ingreso:hover {
-            background-color: #218838;
+        .salida-btn {
+            background: #F44336;
+            color: white;
         }
-
-        .btn-egreso {
-            background-color: #dc3545;
+        .salida-btn:hover {
+            background: #e53935;
         }
-
-        .btn-egreso:hover {
-            background-color: #c82333;
-        }
-
-        .btn-eliminar {
-            background-color: #ff4d4d;
-            padding: 8px 12px;
-            font-size: 14px;
-        }
-
-        .btn-eliminar:hover {
-            background-color: #ff1a1a;
-        }
-
-        .totales {
-            margin-top: 20px;
-            font-size: 18px;
-            color: #555;
-            background: #f9f9f9;
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-        }
-
-        .totales p {
-            margin: 5px 0;
-        }
-
-        .resumen-semanal {
-            margin-top: 20px;
-            font-size: 18px;
-            color: #555;
-            background: #f9f9f9;
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-        }
-
-        .resumen-semanal h3 {
-            margin-top: 0;
-            font-weight: 600;
-            color: #333;
-        }
-
-        .resumen-semanal p {
-            margin: 5px 0;
-        }
-
-        .table-container {
-            background: white;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 800px;
-            max-height: 400px;
-            overflow-y: auto;
-            animation: fadeIn 0.5s ease-in-out;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-
-        th {
-            background-color: #f4f4f4;
-            font-weight: 600;
-            color: #333;
-        }
-
-        tr:hover {
-            background-color: #f9f9f9;
-        }
-
-        #loading {
-            display: none;
-            text-align: center;
-            margin: 20px;
-            font-size: 18px;
-            color: #555;
-        }
-
-        #error-message {
-            color: #dc3545;
-            display: none;
-            margin: 10px 0;
+        input {
             padding: 10px;
-            border-radius: 8px;
-            background-color: #ffe6e6;
-            font-size: 14px;
-        }
-
-        #success-message {
-            color: #28a745;
-            display: none;
-            margin: 10px 0;
-            padding: 10px;
-            border-radius: 8px;
-            background-color: #e6ffe6;
-            font-size: 14px;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        @media (max-width: 600px) {
-            .container, .table-container {
-                padding: 20px;
-            }
-
-            button {
-                width: 100%;
-                margin: 5px 0;
-            }
-
-            .btn-container {
-                flex-direction: column;
-            }
+            font-size: 16px;
+            margin-bottom: 10px;
+            width: calc(100% - 22px);
+            border: 1px solid #ccc;
+            border-radius: 6px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>Registro de Ingreso y Egreso</h2>
-        <input type="text" id="nombre" placeholder="Ingrese su nombre" required aria-label="Nombre">
-        <div class="btn-container">
-            <button class="btn-ingreso" onclick="registrar('Ingreso')" aria-label="Registrar Ingreso">Registrar Ingreso</button>
-            <button class="btn-egreso" onclick="registrar('Egreso')" aria-label="Registrar Egreso">Registrar Egreso</button>
-        </div>
-        <div id="error-message"></div>
-        <div id="success-message"></div>
-        <div class="totales">
-            <p>Horas Normales: <span id="horas-normales">0</span> hs</p>
-            <p>Horas Extras: <span id="horas-extras">0</span> hs</p>
-        </div>
-        <div class="resumen-semanal">
-            <h3>Resumen Semanal (Viernes)</h3>
-            <div id="resumen-semanal-contenido">
-                <!-- Aquí se cargará el resumen semanal -->
-            </div>
-        </div>
-    </div>
-
-    <div class="table-container">
-        <h2>Historial de Registros</h2>
-        <div id="loading">Cargando...</div>
-        <table>
-            <thead>
-                <tr>
-                    <th onclick="ordenarRegistros('nombre')">Nombre</th>
-                    <th onclick="ordenarRegistros('tipo')">Tipo</th>
-                    <th onclick="ordenarRegistros('fechaHora')">Fecha y Hora</th>
-                    <th>Tiempo Trabajado</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody id="tabla-registros">
-                <!-- Aquí se cargarán los registros dinámicamente -->
-            </tbody>
-        </table>
+        <h2>Registro de Horario</h2>
+        <input type="text" id="nombre" placeholder="Ingrese su nombre">
+        <p><strong>Nombre:</strong> <span id="nombreMostrado">---</span></p>
+        <p><strong>Horas Trabajadas:</strong> <span id="horasTrabajadas">0</span></p>
+        <p><strong>Horas Extras:</strong> <span id="horasExtras">0</span></p>
+        <button class="ingreso-btn" onclick="marcarIngreso()">Marcar Ingreso</button>
+        <button class="salida-btn" onclick="marcarSalida()">Marcar Salida</button>
     </div>
 
     <script>
-        let registros = [];
-        const HORAS_SEMANALES_NORMALES = 4 * 60; // Límite de horas normales por semana en minutos
+        let periodosTrabajo = [];
+        let nombre = "";
 
-        function validarNombre(nombre) {
-            const regex = /^[a-zA-Z\s]+$/;
-            return regex.test(nombre) && nombre.length <= 50;
-        }
-
-        function mostrarError(mensaje) {
-            const errorDiv = document.getElementById('error-message');
-            errorDiv.textContent = mensaje;
-            errorDiv.style.display = 'block';
-            setTimeout(() => errorDiv.style.display = 'none', 3000);
-        }
-
-        function mostrarExito(mensaje) {
-            const successDiv = document.getElementById('success-message');
-            successDiv.textContent = mensaje;
-            successDiv.style.display = 'block';
-            setTimeout(() => successDiv.style.display = 'none', 3000);
-        }
-
-        function sanitizarEntrada(texto) {
-            return texto.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        }
-
-        function guardarRegistros() {
-            localStorage.setItem('registros', JSON.stringify(registros));
-        }
-
-        function cargarRegistrosGuardados() {
-            const registrosGuardados = localStorage.getItem('registros');
-            if (registrosGuardados) {
-                registros = JSON.parse(registrosGuardados);
+        function marcarIngreso() {
+            nombre = document.getElementById("nombre").value.trim();
+            if (nombre === "") {
+                alert("Por favor, ingrese su nombre antes de marcar ingreso.");
+                return;
             }
+            document.getElementById("nombreMostrado").textContent = nombre;
+            let ingreso = new Date();
+            periodosTrabajo.push({ ingreso: ingreso, salida: null });
+            document.getElementById("horasTrabajadas").textContent = calcularHorasTrabajadas().toFixed(2);
+            document.getElementById("horasExtras").textContent = calcularHorasExtras().toFixed(2);
         }
 
-        function calcularTiempoTrabajado(registros) {
-            let tiempoTotal = 0; // Tiempo en minutos
-            let ingresos = [];
+        function marcarSalida() {
+            if (periodosTrabajo.length === 0 || periodosTrabajo[periodosTrabajo.length - 1].salida !== null) {
+                alert("Primero debe marcar el ingreso.");
+                return;
+            }
+            let salida = new Date();
+            periodosTrabajo[periodosTrabajo.length - 1].salida = salida;
+            document.getElementById("horasTrabajadas").textContent = calcularHorasTrabajadas().toFixed(2);
+            document.getElementById("horasExtras").textContent = calcularHorasExtras().toFixed(2);
+        }
 
-            registros.forEach((registro, index) => {
-                if (registro.tipo === "Ingreso") {
-                    ingresos.push(registro);
-                } else if (registro.tipo === "Egreso" && ingresos.length > 0) {
-                    const ingreso = ingresos.pop();
-                    const fechaIngreso = new Date(ingreso.fechaHora);
-                    const fechaEgreso = new Date(registro.fechaHora);
-                    const diferencia = fechaEgreso - fechaIngreso; // Diferencia en milisegundos
-                    tiempoTotal += Math.floor(diferencia / (1000 * 60)); // Convertir a minutos
+        function calcularHorasTrabajadas() {
+            let totalHoras = 0;
+            periodosTrabajo.forEach(periodo => {
+                if (periodo.salida) {
+                    totalHoras += (periodo.salida - periodo.ingreso) / (1000 * 60 * 60);
                 }
             });
-
-            return tiempoTotal;
+            return totalHoras;
         }
 
-        function formatearTiempo(minutos) {
-            const horas = Math.floor(minutos / 60);
-            const minutosRestantes = minutos % 60;
-            return `${horas} horas y ${minutosRestantes} minutos`;
-        }
-
-        function obtenerViernesSemana(fecha) {
-            const fechaInicio = new Date(fecha);
-            fechaInicio.setHours(0, 0, 0, 0);
-            fechaInicio.setDate(fechaInicio.getDate() - fechaInicio.getDay() + 5); // Viernes de la semana
-            return fechaInicio.toISOString().split('T')[0]; // Formato YYYY-MM-DD
-        }
-
-        function calcularResumenSemanal() {
-            const resumen = {};
-
-            registros.forEach(registro => {
-                const fecha = new Date(registro.fechaHora);
-                const viernesSemana = obtenerViernesSemana(fecha);
-
-                if (!resumen[viernesSemana]) {
-                    resumen[viernesSemana] = { tiempoTotal: 0, tiempoExtras: 0 };
-                }
-
-                const tiempoTrabajado = calcularTiempoTrabajado([registro]);
-                if (resumen[viernesSemana].tiempoTotal < HORAS_SEMANALES_NORMALES) {
-                    resumen[viernesSemana].tiempoTotal += tiempoTrabajado;
-                } else {
-                    resumen[viernesSemana].tiempoExtras += tiempoTrabajado;
-                }
-            });
-
-            return resumen;
-        }
-
-        function mostrarResumenSemanal() {
-            const resumen = calcularResumenSemanal();
-            const resumenContenido = document.getElementById('resumen-semanal-contenido');
-            resumenContenido.innerHTML = '';
-
-            for (const [viernes, datos] of Object.entries(resumen)) {
-                const div = document.createElement('div');
-                div.innerHTML = `
-                    <p><strong>Semana del ${viernes}:</strong></p>
-                    <p>Tiempo Normal: ${formatearTiempo(datos.tiempoTotal)}</p>
-                    <p>Tiempo Extra: ${formatearTiempo(datos.tiempoExtras)}</p>
-                    <hr>
-                `;
-                resumenContenido.appendChild(div);
+        function calcularHorasExtras() {
+            let horasExtras = 0;
+            let totalHoras = calcularHorasTrabajadas();
+            if (totalHoras > 5) {
+                horasExtras = totalHoras - 5;
             }
+            return horasExtras;
         }
-
-        function eliminarRegistro(index) {
-            registros.splice(index, 1); // Elimina el registro en la posición index
-            guardarRegistros(); // Guarda los cambios en localStorage
-            cargarRegistros(); // Recarga la tabla
-            mostrarExito('Registro eliminado correctamente.');
-        }
-
-        function cargarRegistros(registrosFiltrados = null) {
-            const tabla = document.getElementById('tabla-registros');
-            const loading = document.getElementById('loading');
-            tabla.innerHTML = '';
-            loading.style.display = 'block';
-
-            setTimeout(() => {
-                const fragment = document.createDocumentFragment();
-                const datos = registrosFiltrados || registros;
-
-                datos.forEach((registro, index) => {
-                    const fila = document.createElement('tr');
-                    fila.innerHTML = `
-                        <td>${sanitizarEntrada(registro.nombre)}</td>
-                        <td>${sanitizarEntrada(registro.tipo)}</td>
-                        <td>${sanitizarEntrada(registro.fechaHora)}</td>
-                        <td>${formatearTiempo(calcularTiempoTrabajado([registro]))}</td>
-                        <td>
-                            <button class="btn-eliminar" onclick="eliminarRegistro(${index})" aria-label="Eliminar registro">Eliminar</button>
-                        </td>
-                    `;
-                    fragment.appendChild(fila);
-                });
-
-                tabla.appendChild(fragment);
-                loading.style.display = 'none';
-                mostrarResumenSemanal(); // Mostrar el resumen semanal
-            }, 500);
-        }
-
-        function registrar(tipo) {
-            try {
-                const nombreInput = document.getElementById('nombre');
-                const botones = document.querySelectorAll('.btn-container button');
-                botones.forEach(boton => boton.disabled = true);
-
-                const nombre = nombreInput.value.trim();
-                if (!validarNombre(nombre)) {
-                    mostrarError('Por favor, ingrese un nombre válido (solo letras y espacios, máximo 50 caracteres).');
-                    botones.forEach(boton => boton.disabled = false);
-                    return;
-                }
-
-                const fechaHora = new Date().toLocaleString('es-ES', { timeZone: 'America/Argentina/Buenos_Aires' });
-
-                registros.push({
-                    nombre: sanitizarEntrada(nombre),
-                    tipo,
-                    fechaHora
-                });
-
-                guardarRegistros();
-                mostrarExito('Registro exitoso');
-                nombreInput.value = '';
-                nombreInput.focus();
-                cargarRegistros();
-            } catch (error) {
-                mostrarError('Ocurrió un error al registrar. Por favor, intente nuevamente.');
-                console.error(error);
-            } finally {
-                botones.forEach(boton => boton.disabled = false);
-            }
-        }
-
-        document.addEventListener("DOMContentLoaded", () => {
-            cargarRegistrosGuardados();
-            cargarRegistros();
-        });
     </script>
 </body>
 </html>
