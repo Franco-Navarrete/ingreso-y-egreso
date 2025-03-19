@@ -5,7 +5,158 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registro de Horario</title>
     <style>
-        /* Estilos anteriores... */
+        /* Fuente moderna */
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #1a1a1a, #2c3e50);
+            color: #fff;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 400px;
+            width: 100%;
+            padding: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        h2 {
+            color: #fff;
+            font-size: 24px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        input {
+            width: calc(100% - 20px);
+            padding: 12px;
+            margin-bottom: 15px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-size: 16px;
+            outline: none;
+            transition: background 0.3s ease;
+        }
+
+        input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        input:focus {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        p {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.8);
+            margin: 10px 0;
+        }
+
+        button {
+            margin: 10px;
+            padding: 12px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .ingreso-btn {
+            background: linear-gradient(135deg, #00c6ff, #0072ff);
+            color: white;
+            box-shadow: 0 4px 15px rgba(0, 198, 255, 0.4);
+        }
+
+        .ingreso-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 198, 255, 0.6);
+        }
+
+        .salida-btn {
+            background: linear-gradient(135deg, #ff416c, #ff4b2b);
+            color: white;
+            box-shadow: 0 4px 15px rgba(255, 65, 108, 0.4);
+        }
+
+        .salida-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 65, 108, 0.6);
+        }
+
+        .logout-btn {
+            background: linear-gradient(135deg, #6a11cb, #2575fc);
+            color: white;
+            box-shadow: 0 4px 15px rgba(106, 17, 203, 0.4);
+        }
+
+        .logout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(106, 17, 203, 0.6);
+        }
+
+        .registros-container {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .registros-container h3 {
+            color: #fff;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .registros-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .registros-list li {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            margin-bottom: 5px;
+            border-radius: 5px;
+            color: #fff;
+            font-size: 14px;
+        }
+
+        /* Animación de fondo */
+        @keyframes gradientBackground {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        body {
+            background: linear-gradient(-45deg, #1a1a1a, #2c3e50, #1a1a1a, #2c3e50);
+            background-size: 400% 400%;
+            animation: gradientBackground 15s ease infinite;
+        }
     </style>
 </head>
 <body>
@@ -20,6 +171,12 @@
         <button class="ingreso-btn" onclick="marcarIngreso()">Marcar Ingreso</button>
         <button class="salida-btn" onclick="marcarSalida()">Marcar Salida</button>
         <button class="logout-btn" onclick="cerrarSesion()">Cerrar Sesión</button>
+
+        <!-- Lista de registros del día -->
+        <div class="registros-container">
+            <h3>Registros del Día</h3>
+            <ul class="registros-list" id="registrosList"></ul>
+        </div>
     </div>
 
     <!-- Firebase SDK -->
@@ -47,6 +204,11 @@
         let ingreso = null;
         let salida = null;
         let horasExtras = 0;
+
+        // Cargar registros del día al iniciar la página
+        window.onload = function () {
+            cargarRegistrosDelDia();
+        };
 
         // Marcar ingreso
         function marcarIngreso() {
@@ -94,10 +256,33 @@
                 .then(() => {
                     console.log("Registro guardado en Firebase");
                     alert("Registro guardado correctamente en Firestore.");
+                    cargarRegistrosDelDia(); // Actualizar la lista de registros
                 })
                 .catch((error) => {
                     console.error("Error al guardar en Firebase:", error);
                     alert("Error al guardar en Firebase: " + error.message);
+                });
+        }
+
+        // Cargar registros del día desde Firestore
+        function cargarRegistrosDelDia() {
+            const fechaActual = new Date().toLocaleDateString();
+            const registrosList = document.getElementById("registrosList");
+            registrosList.innerHTML = ""; // Limpiar la lista antes de cargar
+
+            db.collection("registros")
+                .where("fecha", "==", fechaActual)
+                .get()
+                .then((querySnapshot) => {
+                    querySnapshot.forEach((doc) => {
+                        const registro = doc.data();
+                        const li = document.createElement("li");
+                        li.textContent = `Ingreso: ${registro.horaIngreso} - Salida: ${registro.horaSalida} (Horas: ${registro.horasTrabajadas}, Extras: ${registro.horasExtras})`;
+                        registrosList.appendChild(li);
+                    });
+                })
+                .catch((error) => {
+                    console.error("Error al cargar registros:", error);
                 });
         }
 
