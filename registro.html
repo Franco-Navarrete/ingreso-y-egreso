@@ -268,7 +268,7 @@
                 .onSnapshot((querySnapshot) => {
                     if (!querySnapshot.empty) {
                         const doc = querySnapshot.docs[0];
-                        registroActivo = doc.data();
+                        registroActivo = { id: doc.id, ...doc.data() }; // Guardar el ID y los datos del registro
                         document.getElementById("horaIngreso").textContent = registroActivo.horaIngreso;
                         document.getElementById("horaSalida").textContent = "--:--:--";
                         document.getElementById("horasTrabajadas").textContent = "0";
@@ -285,6 +285,11 @@
 
         // Marcar ingreso
         function marcarIngreso() {
+            if (registroActivo) {
+                alert("Debes marcar la salida antes de registrar un nuevo ingreso.");
+                return;
+            }
+
             const nombre = document.getElementById("nombre").value.trim();
             if (nombre === "") {
                 alert("Por favor, ingrese su nombre antes de marcar ingreso.");
