@@ -237,6 +237,7 @@
         let salida = null;
         let horasExtras = 0;
         let usuarioActual = null;
+        let registroActivo = null;
 
         // Cargar registros del día al iniciar la página
         window.onload = function () {
@@ -251,11 +252,35 @@
                     document.getElementById("nombre").value = user.email; // Mostrar el correo del usuario
                     cargarRegistrosDelDia();
                     calcularTotalHorasExtras(); // Calcular el total de horas extras
+                    escucharRegistroActivo(); // Escuchar cambios en el registro activo
                 } else {
                     // Redirigir a la página de inicio de sesión si no hay usuario autenticado
                     window.location.href = "login.html";
                 }
             });
+        }
+
+        // Escuchar cambios en el registro activo
+        function escucharRegistroActivo() {
+            db.collection("registros")
+                .where("usuario", "==", usuarioActual.email)
+                .where("estado", "==", "activo")
+                .onSnapshot((querySnapshot) => {
+                    if (!querySnapshot.empty) {
+                        const doc = querySnapshot.docs[0];
+                        registroActivo = doc.data();
+                        document.getElementById("horaIngreso").textContent = registroActivo.horaIngreso;
+                        document.getElementById("horaSalida").textContent = "--:--:--";
+                        document.getElementById("horasTrabajadas").textContent = "0";
+                        document.getElementById("horasExtras").textContent = "0";
+                    } else {
+                        registroActivo = null;
+                        document.getElementById("horaIngreso").textContent = "--:--:--";
+                        document.getElementById("horaSalida").textContent = "--:--:--";
+                        document.getElementById("horasTrabajadas").textContent = "0";
+                        document.getElementById("horasExtras").textContent = "0";
+                    }
+                });
         }
 
         // Marcar ingreso
@@ -265,53 +290,56 @@
                 alert("Por favor, ingrese su nombre antes de marcar ingreso.");
                 return;
             }
-            document.getElementById("nombreMostrado").textContent = nombre;
             ingreso = new Date();
-            document.getElementById("horaIngreso").textContent = ingreso.toLocaleTimeString();
-            document.getElementById("horaSalida").textContent = "--:--:--";
-            document.getElementById("horasTrabajadas").textContent = "0";
-            document.getElementById("horasExtras").textContent = "0";
-        }
-
-        // Marcar salida y calcular horas extras
-        function marcarSalida() {
-            if (!ingreso) {
-                alert("Primero debe marcar la hora de ingreso.");
-                return;
-            }
-            salida = new Date();
-            document.getElementById("horaSalida").textContent = salida.toLocaleTimeString();
-
-            let diferencia = (salida - ingreso) / (1000 * 60 * 60); // Diferencia en horas
-            document.getElementById("horasTrabajadas").textContent = diferencia.toFixed(2);
-
-            // Calcular horas extras (más de 5 horas)
-            horasExtras = Math.max(0, diferencia - 5);
-            document.getElementById("horasExtras").textContent = horasExtras.toFixed(2);
-
-            // Guardar en Firebase Firestore
-            const nombre = document.getElementById("nombre").value.trim();
             const registro = {
                 nombre: nombre,
                 horaIngreso: ingreso.toLocaleTimeString(),
-                horaSalida: salida.toLocaleTimeString(),
-                horasTrabajadas: diferencia.toFixed(2),
-                horasExtras: horasExtras.toFixed(2),
-                fecha: new Date().toLocaleDateString(), // Guardar la fecha
-                usuario: usuarioActual.email // Guardar el correo del usuario
+                horaSalida: "--:--:--",
+                horasTrabajadas: "0",
+                horasExtras: "0",
+                fecha: new Date().toLocaleDateString(),
+                usuario: usuarioActual.email,
+                estado: "activo" // Estado del registro
             };
 
             db.collection("registros").add(registro)
                 .then(() => {
-                    console.log("Registro guardado en Firebase");
-                    alert("Registro guardado correctamente en Firestore.");
-                    cargarRegistrosDelDia(); // Actualizar la lista de registros
-                    calcularTotalHorasExtras(); // Recalcular el total de horas extras
+                    console.log("Registro de ingreso guardado en Firebase");
+                    alert("Registro de ingreso guardado correctamente en Firestore.");
                 })
                 .catch((error) => {
                     console.error("Error al guardar en Firebase:", error);
                     alert("Error al guardar en Firebase: " + error.message);
                 });
+        }
+
+        // Marcar salida y calcular horas extras
+        function marcarSalida() {
+            if (!registroActivo) {
+                alert("No hay un registro activo para marcar la salida.");
+                return;
+            }
+            salida = new Date();
+            const diferencia = (salida - new Date(registroActivo.horaIngreso)) / (1000 * 60 * 60); // Diferencia en horas
+            const horasExtras = Math.max(0, diferencia - 5);
+
+            // Actualizar el registro en Firestore
+            db.collection("registros").doc(registroActivo.id).update({
+                horaSalida: salida.toLocaleTimeString(),
+                horasTrabajadas: diferencia.toFixed(2),
+                horasExtras: horasExtras.toFixed(2),
+                estado: "inactivo" // Cambiar el estado a inactivo
+            })
+            .then(() => {
+                console.log("Registro de salida actualizado en Firebase");
+                alert("Registro de salida guardado correctamente en Firestore.");
+                cargarRegistrosDelDia(); // Actualizar la lista de registros
+                calcularTotalHorasExtras(); // Recalcular el total de horas extras
+            })
+            .catch((error) => {
+                console.error("Error al actualizar en Firebase:", error);
+                alert("Error al actualizar en Firebase: " + error.message);
+            });
         }
 
         // Cargar registros del día desde Firestore
