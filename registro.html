@@ -199,6 +199,7 @@
         <p><strong>Hora de Salida:</strong> <span id="horaSalida">--:--:--</span></p>
         <p><strong>Horas Trabajadas:</strong> <span id="horasTrabajadas">0</span></p>
         <p><strong>Horas Extras:</strong> <span id="horasExtras">0</span></p>
+        <p><strong>Total Horas Extras:</strong> <span id="totalHorasExtras">0</span></p>
         <button class="ingreso-btn" onclick="marcarIngreso()">Marcar Ingreso</button>
         <button class="salida-btn" onclick="marcarSalida()">Marcar Salida</button>
         <button class="logout-btn" onclick="cerrarSesion()">Cerrar Sesión</button>
@@ -249,6 +250,7 @@
                     usuarioActual = user;
                     document.getElementById("nombre").value = user.email; // Mostrar el correo del usuario
                     cargarRegistrosDelDia();
+                    calcularTotalHorasExtras(); // Calcular el total de horas extras
                 } else {
                     // Redirigir a la página de inicio de sesión si no hay usuario autenticado
                     window.location.href = "login.html";
@@ -295,7 +297,7 @@
                 horaSalida: salida.toLocaleTimeString(),
                 horasTrabajadas: diferencia.toFixed(2),
                 horasExtras: horasExtras.toFixed(2),
-                fecha: new Date().toLocaleDateString(),
+                fecha: new Date().toLocaleDateString(), // Guardar la fecha
                 usuario: usuarioActual.email // Guardar el correo del usuario
             };
 
@@ -304,6 +306,7 @@
                     console.log("Registro guardado en Firebase");
                     alert("Registro guardado correctamente en Firestore.");
                     cargarRegistrosDelDia(); // Actualizar la lista de registros
+                    calcularTotalHorasExtras(); // Recalcular el total de horas extras
                 })
                 .catch((error) => {
                     console.error("Error al guardar en Firebase:", error);
@@ -325,12 +328,30 @@
                     querySnapshot.forEach((doc) => {
                         const registro = doc.data();
                         const li = document.createElement("li");
-                        li.textContent = `Ingreso: ${registro.horaIngreso} - Salida: ${registro.horaSalida} (Horas: ${registro.horasTrabajadas}, Extras: ${registro.horasExtras})`;
+                        li.textContent = `Fecha: ${registro.fecha} - Ingreso: ${registro.horaIngreso} - Salida: ${registro.horaSalida} (Horas: ${registro.horasTrabajadas}, Extras: ${registro.horasExtras})`;
                         registrosList.appendChild(li);
                     });
                 })
                 .catch((error) => {
                     console.error("Error al cargar registros:", error);
+                });
+        }
+
+        // Calcular el total de horas extras
+        function calcularTotalHorasExtras() {
+            db.collection("registros")
+                .where("usuario", "==", usuarioActual.email) // Filtrar por usuario
+                .get()
+                .then((querySnapshot) => {
+                    let total = 0;
+                    querySnapshot.forEach((doc) => {
+                        const registro = doc.data();
+                        total += parseFloat(registro.horasExtras); // Sumar las horas extras
+                    });
+                    document.getElementById("totalHorasExtras").textContent = total.toFixed(2); // Mostrar el total
+                })
+                .catch((error) => {
+                    console.error("Error al calcular horas extras:", error);
                 });
         }
 
