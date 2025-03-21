@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registro de Horario</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
     <style>
         /* Fuente moderna */
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
@@ -193,16 +194,28 @@
 <body>
     <div class="container">
         <h2>Registro de Horario</h2>
-        <input type="text" id="nombre" placeholder="Ingrese su nombre">
+        <label for="nombre">Nombre:</label>
+        <input type="text" id="nombre" placeholder="Ingrese su nombre" required>
         <p><strong>Nombre:</strong> <span id="nombreMostrado">---</span></p>
         <p><strong>Hora de Ingreso:</strong> <span id="horaIngreso">--:--:--</span></p>
         <p><strong>Hora de Salida:</strong> <span id="horaSalida">--:--:--</span></p>
         <p><strong>Horas Trabajadas:</strong> <span id="horasTrabajadas">0</span></p>
         <p><strong>Horas Extras:</strong> <span id="horasExtras">0</span></p>
         <p><strong>Total Horas Extras:</strong> <span id="totalHorasExtras">0</span></p>
+        <p id="statusMessage"></p>
         <button class="ingreso-btn" onclick="marcarIngreso()">Marcar Ingreso</button>
         <button class="salida-btn" onclick="marcarSalida()">Marcar Salida</button>
         <button class="logout-btn" onclick="cerrarSesion()">Cerrar Sesión</button>
+
+        <!-- Nuevos campos para edición manual -->
+        <div class="manual-input">
+            <h3>Editar Horario Manualmente</h3>
+            <label for="horaIngresoManual">Hora de Ingreso:</label>
+            <input type="time" id="horaIngresoManual" placeholder="Hora de Ingreso">
+            <label for="horaSalidaManual">Hora de Salida:</label>
+            <input type="time" id="horaSalidaManual" placeholder="Hora de Salida">
+            <button class="calcular-btn" onclick="calcularHorasManuales()">Calcular Horas Manuales</button>
+        </div>
 
         <!-- Lista de registros del día -->
         <div class="registros-container">
@@ -233,57 +246,52 @@
         const auth = firebase.auth();
         const db = firebase.firestore();
 
-        let ingreso = null;
-        let salida = null;
-        let horasExtras = 0;
         let usuarioActual = null;
         let registroActivo = null;
 
-        // Cargar registros del día al iniciar la página
-        window.onload = function () {
-            autenticarUsuario();
-        };
+        // Verificar autenticación del usuario
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                usuarioActual = user;
+                document.getElementById("nombre").value = user.email;
+                document.getElementById("nombreMostrado").textContent = user.email;
+                cargarRegistrosDelDia();
+                calcularTotalHorasExtras();
+            } else {
+                window.location.href = "login.html";
+            }
+        });
 
-        // Autenticar usuario
-        function autenticarUsuario() {
-            auth.onAuthStateChanged((user) => {
-                if (user) {
-                    usuarioActual = user;
-                    document.getElementById("nombre").value = user.email; // Mostrar el correo del usuario
-                    cargarRegistrosDelDia();
-                    calcularTotalHorasExtras(); // Calcular el total de horas extras
-                    escucharRegistroActivo(); // Escuchar cambios en el registro activo
-                } else {
-                    // Redirigir a la página de inicio de sesión si no hay usuario autenticado
-                    window.location.href = "login.html";
-                }
-            });
-        }
+        // Función para cargar registros del día
+        function cargarRegistrosDelDia() {
+            const fechaActual = new Date().toLocaleDateString();
+            const registrosList = document.getElementById("registrosList");
+            registrosList.innerHTML = ""; // Limpiar la lista antes de cargar
 
-        // Escuchar cambios en el registro activo
-        function escucharRegistroActivo() {
             db.collection("registros")
+                .where("fecha", "==", fechaActual)
                 .where("usuario", "==", usuarioActual.email)
-                .where("estado", "==", "activo")
-                .onSnapshot((querySnapshot) => {
-                    if (!querySnapshot.empty) {
-                        const doc = querySnapshot.docs[0];
-                        registroActivo = { id: doc.id, ...doc.data() }; // Guardar el ID y los datos del registro
-                        document.getElementById("horaIngreso").textContent = registroActivo.horaIngreso;
-                        document.getElementById("horaSalida").textContent = "--:--:--";
-                        document.getElementById("horasTrabajadas").textContent = "0";
-                        document.getElementById("horasExtras").textContent = "0";
-                    } else {
-                        registroActivo = null;
-                        document.getElementById("horaIngreso").textContent = "--:--:--";
-                        document.getElementById("horaSalida").textContent = "--:--:--";
-                        document.getElementById("horasTrabajadas").textContent = "0";
-                        document.getElementById("horasExtras").textContent = "0";
-                    }
+                .get()
+                .then((querySnapshot) => {
+                    querySnapshot.forEach((doc) => {
+                        const registro = doc.data();
+                        const li = document.createElement("li");
+                        li.textContent = `Fecha: ${registro.fecha} - Ingreso: ${registro.horaIngreso} - Salida: ${registro.horaSalida} (Horas: ${registro.horasTrabajadas}, Extras: ${registro.horasExtras})`;
+                        registrosList.appendChild(li);
+
+                        // Si hay un registro activo, actualizar la interfaz
+                        if (registro.estado === "activo") {
+                            registroActivo = { id: doc.id, ...registro };
+                            actualizarUI();
+                        }
+                    });
+                })
+                .catch((error) => {
+                    console.error("Error al cargar registros:", error);
                 });
         }
 
-        // Marcar ingreso
+        // Función para marcar ingreso
         function marcarIngreso() {
             if (registroActivo) {
                 alert("Debes marcar la salida antes de registrar un nuevo ingreso.");
@@ -295,7 +303,8 @@
                 alert("Por favor, ingrese su nombre antes de marcar ingreso.");
                 return;
             }
-            ingreso = new Date();
+
+            const ingreso = new Date();
             const registro = {
                 nombre: nombre,
                 horaIngreso: ingreso.toLocaleTimeString(),
@@ -304,50 +313,433 @@
                 horasExtras: "0",
                 fecha: new Date().toLocaleDateString(),
                 usuario: usuarioActual.email,
-                estado: "activo" // Estado del registro
+                estado: "activo"
             };
 
             db.collection("registros").add(registro)
-                .then(() => {
-                    console.log("Registro de ingreso guardado en Firebase");
-                    alert("Registro de ingreso guardado correctamente en Firestore.");
+                .then((docRef) => {
+                    registroActivo = { id: docRef.id, ...registro };
+                    alert("Registro de ingreso guardado correctamente.");
+                    actualizarUI();
                 })
                 .catch((error) => {
                     console.error("Error al guardar en Firebase:", error);
-                    alert("Error al guardar en Firebase: " + error.message);
+                    alert(`Error al registrar ingreso: ${error.message}`);
                 });
         }
 
-        // Marcar salida y calcular horas extras
+        // Función para marcar salida
         function marcarSalida() {
             if (!registroActivo) {
-                alert("No hay un registro activo para marcar la salida.");
+                alert("No hay un ingreso registrado.");
                 return;
             }
-            salida = new Date();
-            const diferencia = (salida - new Date(registroActivo.horaIngreso)) / (1000 * 60 * 60); // Diferencia en horas
-            const horasExtras = Math.max(0, diferencia - 5);
 
-            // Actualizar el registro en Firestore
+            const salida = new Date();
+            const salidaHora = salida.toLocaleTimeString();
+            const { horasTrabajadas, horasExtras } = calcularHoras(registroActivo.horaIngreso, salidaHora);
+
             db.collection("registros").doc(registroActivo.id).update({
-                horaSalida: salida.toLocaleTimeString(),
-                horasTrabajadas: diferencia.toFixed(2),
+                horaSalida: salidaHora,
+                horasTrabajadas: horasTrabajadas.toFixed(2),
                 horasExtras: horasExtras.toFixed(2),
-                estado: "inactivo" // Cambiar el estado a inactivo
+                estado: "finalizado"
             })
             .then(() => {
-                console.log("Registro de salida actualizado en Firebase");
-                alert("Registro de salida guardado correctamente en Firestore.");
-                cargarRegistrosDelDia(); // Actualizar la lista de registros
-                calcularTotalHorasExtras(); // Recalcular el total de horas extras
+                alert("Salida registrada correctamente.");
+                registroActivo = null;
+                actualizarUI();
             })
             .catch((error) => {
-                console.error("Error al actualizar en Firebase:", error);
-                alert("Error al actualizar en Firebase: " + error.message);
+                console.error("Error al registrar salida:", error);
+                alert("Error al registrar salida.");
             });
         }
 
-        // Cargar registros del día desde Firestore
+        // Función para calcular horas
+        function calcularHoras(ingreso, salida) {
+            const tiempoIngreso = new Date(`1970-01-01T${ingreso}`);
+            const tiempoSalida = new Date(`1970-01-01T${salida}`);
+
+            if (isNaN(tiempoIngreso) || isNaN(tiempoSalida)) {
+                console.error("Formato de hora inválido");
+                return { horasTrabajadas: 0, horasExtras: 0 };
+            }
+
+            let horasTrabajadas = (tiempoSalida - tiempoIngreso) / 3600000; // Convertir ms a horas
+            let horasExtras = horasTrabajadas > 8 ? horasTrabajadas - 8 : 0; // Considerar 8 horas como jornada laboral
+
+            return { horasTrabajadas, horasExtras };
+        }
+
+        // Función para calcular horas manualmente
+        function calcularHorasManuales() {
+            const horaIngresoManual = document.getElementById("horaIngresoManual").value;
+            const horaSalidaManual = document.getElementById("horaSalidaManual").value;
+
+            if (!horaIngresoManual || !horaSalidaManual) {
+                alert("Por favor, ingresa ambas horas (ingreso y salida).");
+                return;
+            }
+
+            const { horasTrabajadas, horasExtras } = calcularHoras(horaIngresoManual, horaSalidaManual);
+
+            // Mostrar resultados en la interfaz
+            document.getElementById("horasTrabajadas").textContent = horasTrabajadas.toFixed(2);
+            document.getElementById("horasExtras").textContent = horasExtras.toFixed(2);
+
+            alert(`Horas Trabajadas: ${horasTrabajadas.toFixed(2)}\nHoras Extras: ${horasExtras.toFixed(2)}`);
+        }
+
+        // Función para actualizar la interfaz
+        function actualizarUI() {
+            const statusMessage = document.getElementById("statusMessage");
+            if (statusMessage) {
+                statusMessage.textContent = registroActivo
+                    ? "Tienes un registro activo. Marca la salida cuando termines."
+                    : "No hay un registro activo. Marca el ingreso para comenzar.";
+            }
+
+            if (registroActivo) {
+                document.getElementById("horaIngreso").textContent = registroActivo.horaIngreso;
+                document.getElementById("horaSalida").textContent = registroActivo.horaSalida;
+                document.getElementById("horasTrabajadas").textContent = registroActivo.horasTrabajadas;
+                document.getElementById("horasExtras").textContent = registroActivo.horasExtras;
+            } else {
+                document.getElementById("horaIngreso").textContent = "--:--:--";
+                document.getElementById("horaSalida").textContent = "--:--:--";
+                document.getElementById("horasTrabajadas").textContent = "0";
+                document.getElementById("horasExtras").textContent = "0";
+            }
+        }
+
+        // Función para calcular el total de horas extras
+        function calcularTotalHorasExtras() {
+            db.collection("registros")
+                .where("usuario", "==", usuarioActual.email)
+                .get()
+                .then((querySnapshot) => {
+                    let total = 0;
+                    querySnapshot.forEach((doc) => {
+                        const registro = doc.data();
+                        const horasExtras = parseFloat(registro.horasExtras);
+                        if (!isNaN(horasExtras)) {
+                            total += horasExtras;
+                        }
+                    });
+                    document.getElementById("totalHorasExtras").textContent = total.toFixed(2);
+                })
+                .catch((error) => {
+                    console.error("Error al calcular horas extras:", error);
+                });
+        }
+
+        // Función para cerrar sesión
+        function cerrarSesion() {
+            auth.signOut().then(() => {
+                window.location.href = "index.html";
+            }).catch((error) => {
+                console.error("Error al cerrar sesión:", error);
+           (Due to technical issues, the search service is temporarily unavailable.)
+
+El error que mencionas (`Error: <path> attribute d: Expected number, "… tc0.2,0,0.4-0.2,0…"`) está relacionado con un problema en el atributo `d` de un elemento `<path>` en un gráfico SVG. Sin embargo, en el código que has compartido, no hay ningún elemento `<path>` o SVG. Por lo tanto, es probable que este error esté siendo generado por una librería externa o un script adicional que no está incluido en el código proporcionado.
+
+Para corregir este problema, te sugiero lo siguiente:
+
+---
+
+### 1. **Revisar Librerías Externas**
+   - Si estás utilizando alguna librería externa (como jQuery, Chart.js, o cualquier otra que manipule gráficos SVG), verifica que esté correctamente incluida y que no haya conflictos.
+   - Asegúrate de que la versión de la librería sea compatible con tu proyecto.
+
+---
+
+### 2. **Eliminar o Corregir el SVG Problemático**
+   - Si hay un elemento `<path>` en tu código HTML o JavaScript que esté generando el error, elimínalo o corrígelo. Por ejemplo:
+     ```html
+     <!-- Ejemplo de un path válido -->
+     <svg>
+       <path d="M10 10 L20 20" />
+     </svg>
+     ```
+   - Si el error proviene de un script dinámico, asegúrate de que los valores del atributo `d` sean correctos.
+
+---
+
+### 3. **Depurar el Código**
+   - Abre las herramientas de desarrollo del navegador (F12) y revisa la pestaña "Console" para obtener más detalles sobre el error.
+   - Busca en el código cualquier referencia a un elemento `<path>` o SVG que pueda estar causando el problema.
+
+---
+
+### 4. **Código Corregido y Mejorado**
+Aquí tienes el código completo sin referencias a SVG y con mejoras visuales y funcionales:
+
+```html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro de Horario</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <style>
+        /* Fuente moderna */
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #1a1a1a, #2c3e50);
+            color: #fff;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 400px;
+            width: 100%;
+            padding: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            animation: fadeIn 1s ease-in-out;
+        }
+
+        h2 {
+            color: #fff;
+            font-size: 24px;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        input {
+            width: calc(100% - 20px);
+            padding: 12px;
+            margin-bottom: 15px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-size: 16px;
+            outline: none;
+            transition: background 0.3s ease;
+        }
+
+        input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        input:focus {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        p {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.8);
+            margin: 10px 0;
+        }
+
+        button {
+            margin: 10px;
+            padding: 12px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .ingreso-btn {
+            background: linear-gradient(135deg, #00c6ff, #0072ff);
+            color: white;
+            box-shadow: 0 4px 15px rgba(0, 198, 255, 0.4);
+        }
+
+        .ingreso-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 198, 255, 0.6);
+        }
+
+        .salida-btn {
+            background: linear-gradient(135deg, #ff416c, #ff4b2b);
+            color: white;
+            box-shadow: 0 4px 15px rgba(255, 65, 108, 0.4);
+        }
+
+        .salida-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 65, 108, 0.6);
+        }
+
+        .logout-btn {
+            background: linear-gradient(135deg, #6a11cb, #2575fc);
+            color: white;
+            box-shadow: 0 4px 15px rgba(106, 17, 203, 0.4);
+        }
+
+        .logout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(106, 17, 203, 0.6);
+        }
+
+        .registros-container {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            animation: slideIn 0.5s ease-in-out;
+        }
+
+        .registros-container h3 {
+            color: #fff;
+            font-size: 18px;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        .registros-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .registros-list li {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            margin-bottom: 5px;
+            border-radius: 5px;
+            color: #fff;
+            font-size: 14px;
+            transition: background 0.3s ease;
+        }
+
+        .registros-list li:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Animaciones */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Animación de fondo */
+        @keyframes gradientBackground {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        body {
+            background: linear-gradient(-45deg, #1a1a1a, #2c3e50, #1a1a1a, #2c3e50);
+            background-size: 400% 400%;
+            animation: gradientBackground 15s ease infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Registro de Horario</h2>
+        <label for="nombre">Nombre:</label>
+        <input type="text" id="nombre" placeholder="Ingrese su nombre" required>
+        <p><strong>Nombre:</strong> <span id="nombreMostrado">---</span></p>
+        <p><strong>Hora de Ingreso:</strong> <span id="horaIngreso">--:--:--</span></p>
+        <p><strong>Hora de Salida:</strong> <span id="horaSalida">--:--:--</span></p>
+        <p><strong>Horas Trabajadas:</strong> <span id="horasTrabajadas">0</span></p>
+        <p><strong>Horas Extras:</strong> <span id="horasExtras">0</span></p>
+        <p><strong>Total Horas Extras:</strong> <span id="totalHorasExtras">0</span></p>
+        <p id="statusMessage"></p>
+        <button class="ingreso-btn" onclick="marcarIngreso()">Marcar Ingreso</button>
+        <button class="salida-btn" onclick="marcarSalida()">Marcar Salida</button>
+        <button class="logout-btn" onclick="cerrarSesion()">Cerrar Sesión</button>
+
+        <!-- Nuevos campos para edición manual -->
+        <div class="manual-input">
+            <h3>Editar Horario Manualmente</h3>
+            <label for="horaIngresoManual">Hora de Ingreso:</label>
+            <input type="time" id="horaIngresoManual" placeholder="Hora de Ingreso">
+            <label for="horaSalidaManual">Hora de Salida:</label>
+            <input type="time" id="horaSalidaManual" placeholder="Hora de Salida">
+            <button class="calcular-btn" onclick="calcularHorasManuales()">Calcular Horas Manuales</button>
+        </div>
+
+        <!-- Lista de registros del día -->
+        <div class="registros-container">
+            <h3>Registros del Día</h3>
+            <ul class="registros-list" id="registrosList"></ul>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+    <script>
+        // Configuración de Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyDf8vATPio8BV9P3EvZ50jDo4W0o5dIbEE",
+            authDomain: "ingreso-y-egreso.firebaseapp.com",
+            projectId: "ingreso-y-egreso",
+            storageBucket: "ingreso-y-egreso.appspot.com",
+            messagingSenderId: "651695534663",
+            appId: "1:651695534663:web:8872a0ccc01fc98ea27762",
+            measurementId: "G-YZGLC6MMYM"
+        };
+
+        // Inicializar Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let usuarioActual = null;
+        let registroActivo = null;
+
+        // Verificar autenticación del usuario
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                usuarioActual = user;
+                document.getElementById("nombre").value = user.email;
+                cargarRegistrosDelDia();
+                calcularTotalHorasExtras();
+            } else {
+                window.location.href = "login.html";
+            }
+        });
+
+        // Función para cargar registros del día
         function cargarRegistrosDelDia() {
             const fechaActual = new Date().toLocaleDateString();
             const registrosList = document.getElementById("registrosList");
@@ -355,7 +747,7 @@
 
             db.collection("registros")
                 .where("fecha", "==", fechaActual)
-                .where("usuario", "==", usuarioActual.email) // Filtrar por usuario
+                .where("usuario", "==", usuarioActual.email)
                 .get()
                 .then((querySnapshot) => {
                     querySnapshot.forEach((doc) => {
@@ -370,28 +762,566 @@
                 });
         }
 
-        // Calcular el total de horas extras
+        // Función para marcar ingreso
+        function marcarIngreso() {
+            if (registroActivo) {
+                alert("Debes marcar la salida antes de registrar un nuevo ingreso.");
+                return;
+            }
+
+            const nombre = document.getElementById("nombre").value.trim();
+            if (nombre === "") {
+                alert("Por favor, ingrese su nombre antes de marcar ingreso.");
+                return;
+            }
+
+            const ingreso = new Date();
+            const registro = {
+                nombre: nombre,
+                horaIngreso: ingreso.toLocaleTimeString(),
+                horaSalida: "--:--:--",
+                horasTrabajadas: "0",
+                horasExtras: "0",
+                fecha: new Date().toLocaleDateString(),
+                usuario: usuarioActual.email,
+                estado: "activo"
+            };
+
+            console.log("Registro a guardar:", registro); // Depuración adicional
+
+            db.collection("registros").add(registro)
+                .then((docRef) => {
+                    registroActivo = { id: docRef.id, ...registro };
+                    alert("Registro de ingreso guardado correctamente en Firestore.");
+                    actualizarUI();
+                })
+                .catch((error) => {
+                    console.error("Error al guardar en Firebase:", error); // Depuración adicional
+                    alert(`Error al registrar ingreso: ${error.message}`); // Mostrar el mensaje de error
+                });
+        }
+
+        // Función para marcar salida
+        function marcarSalida() {
+            if (!registroActivo) {
+                alert("No hay un ingreso registrado.");
+                return;
+            }
+
+            const salida = new Date();
+            const salidaHora = salida.toLocaleTimeString();
+            const { horasTrabajadas, horasExtras } = calcularHoras(registroActivo.horaIngreso, salidaHora);
+
+            db.collection("registros").doc(registroActivo.id).update({
+                horaSalida: salidaHora,
+                horasTrabajadas: horasTrabajadas.toFixed(2),
+                horasExtras: horasExtras.toFixed(2),
+                estado: "finalizado"
+            })
+            .then(() => {
+                alert("Salida registrada correctamente.");
+                registroActivo = null;
+                actualizarUI();
+            })
+            .catch((error) => {
+                console.error("Error al registrar salida:", error);
+                alert("Error al registrar salida.");
+            });
+        }
+
+        // Función para calcular horas
+        function calcularHoras(ingreso, salida) {
+            const tiempoIngreso = new Date(`1970-01-01T${ingreso}`);
+            const tiempoSalida = new Date(`1970-01-01T${salida}`);
+
+            if (isNaN(tiempoIngreso) || isNaN(tiempoSalida)) {
+                console.error("Invalid time format");
+                return { horasTrabajadas: 0, horasExtras: 0 };
+            }
+
+            let horasTrabajadas = (tiempoSalida - tiempoIngreso) / 3600000; // Convertir ms a horas
+            let horasExtras = horasTrabajadas > 4 ? horasTrabajadas - 4 : 0;
+
+            return { horasTrabajadas, horasExtras };
+        }
+
+        // Función para calcular horas manualmente
+        function calcularHorasManuales() {
+            const horaIngresoManual = document.getElementById("horaIngresoManual").value;
+            const horaSalidaManual = document.getElementById("horaSalidaManual").value;
+
+            if (!horaIngresoManual || !horaSalidaManual) {
+                alert("Por favor, ingresa ambas horas (ingreso y salida).");
+                return;
+            }
+
+            const { horasTrabajadas, horasExtras } = calcularHoras(horaIngresoManual, horaSalidaManual);
+
+            // Mostrar resultados en la interfaz
+            document.getElementById("horasTrabajadas").textContent = horasTrabajadas.toFixed(2);
+            document.getElementById("horasExtras").textContent = horasExtras.toFixed(2);
+
+            alert(`Horas Trabajadas: ${horasTrabajadas.toFixed(2)}\nHoras Extras: ${horasExtras.toFixed(2)}`);
+        }
+
+        // Función para actualizar la interfaz
+        function actualizarUI() {
+            const statusMessage = document.getElementById("statusMessage");
+            if (statusMessage) {
+                statusMessage.textContent = registroActivo
+                    ? "Tienes un registro activo. Marca la salida cuando termines."
+                    : "No hay un registro activo. Marca el ingreso para comenzar.";
+            }
+        }
+
+        // Función para calcular el total de horas extras
         function calcularTotalHorasExtras() {
             db.collection("registros")
-                .where("usuario", "==", usuarioActual.email) // Filtrar por usuario
+                .where("usuario", "==", usuarioActual(Due to technical issues, the search service is temporarily unavailable.)
+
+Para mejorar la apariencia visual de la aplicación, he realizado ajustes en el diseño, incluyendo mejoras en los colores, espaciado, animaciones y la disposición de los elementos. Aquí tienes el código completo con las mejoras visuales aplicadas:
+
+### Código Completo con Mejoras Visuales
+
+```html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro de Horario</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <style>
+        /* Fuente moderna */
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #1a1a1a, #2c3e50);
+            color: #fff;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 450px;
+            width: 100%;
+            padding: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            animation: fadeIn 1s ease-in-out;
+        }
+
+        h2 {
+            color: #fff;
+            font-size: 28px;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        input {
+            width: calc(100% - 20px);
+            padding: 12px;
+            margin-bottom: 15px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-size: 16px;
+            outline: none;
+            transition: background 0.3s ease;
+        }
+
+        input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        input:focus {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        p {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.8);
+            margin: 10px 0;
+        }
+
+        button {
+            margin: 10px;
+            padding: 12px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .ingreso-btn {
+            background: linear-gradient(135deg, #00c6ff, #0072ff);
+            color: white;
+            box-shadow: 0 4px 15px rgba(0, 198, 255, 0.4);
+        }
+
+        .ingreso-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 198, 255, 0.6);
+        }
+
+        .salida-btn {
+            background: linear-gradient(135deg, #ff416c, #ff4b2b);
+            color: white;
+            box-shadow: 0 4px 15px rgba(255, 65, 108, 0.4);
+        }
+
+        .salida-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 65, 108, 0.6);
+        }
+
+        .logout-btn {
+            background: linear-gradient(135deg, #6a11cb, #2575fc);
+            color: white;
+            box-shadow: 0 4px 15px rgba(106, 17, 203, 0.4);
+        }
+
+        .logout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(106, 17, 203, 0.6);
+        }
+
+        .manual-input {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            animation: slideIn 0.5s ease-in-out;
+        }
+
+        .manual-input h3 {
+            color: #fff;
+            font-size: 18px;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        .registros-container {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            animation: slideIn 0.5s ease-in-out;
+        }
+
+        .registros-container h3 {
+            color: #fff;
+            font-size: 18px;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        .registros-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .registros-list li {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            margin-bottom: 5px;
+            border-radius: 5px;
+            color: #fff;
+            font-size: 14px;
+            transition: background 0.3s ease;
+        }
+
+        .registros-list li:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Animaciones */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Animación de fondo */
+        @keyframes gradientBackground {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        body {
+            background: linear-gradient(-45deg, #1a1a1a, #2c3e50, #1a1a1a, #2c3e50);
+            background-size: 400% 400%;
+            animation: gradientBackground 15s ease infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Registro de Horario</h2>
+        <label for="nombre">Nombre:</label>
+        <input type="text" id="nombre" placeholder="Ingrese su nombre" required>
+        <p><strong>Nombre:</strong> <span id="nombreMostrado">---</span></p>
+        <p><strong>Hora de Ingreso:</strong> <span id="horaIngreso">--:--:--</span></p>
+        <p><strong>Hora de Salida:</strong> <span id="horaSalida">--:--:--</span></p>
+        <p><strong>Horas Trabajadas:</strong> <span id="horasTrabajadas">0</span></p>
+        <p><strong>Horas Extras:</strong> <span id="horasExtras">0</span></p>
+        <p><strong>Total Horas Extras:</strong> <span id="totalHorasExtras">0</span></p>
+        <p id="statusMessage"></p>
+        <button class="ingreso-btn" onclick="marcarIngreso()">Marcar Ingreso</button>
+        <button class="salida-btn" onclick="marcarSalida()">Marcar Salida</button>
+        <button class="logout-btn" onclick="cerrarSesion()">Cerrar Sesión</button>
+
+        <!-- Nuevos campos para edición manual -->
+        <div class="manual-input">
+            <h3>Editar Horario Manualmente</h3>
+            <label for="horaIngresoManual">Hora de Ingreso:</label>
+            <input type="time" id="horaIngresoManual" placeholder="Hora de Ingreso">
+            <label for="horaSalidaManual">Hora de Salida:</label>
+            <input type="time" id="horaSalidaManual" placeholder="Hora de Salida">
+            <button class="calcular-btn" onclick="calcularHorasManuales()">Calcular Horas Manuales</button>
+        </div>
+
+        <!-- Lista de registros del día -->
+        <div class="registros-container">
+            <h3>Registros del Día</h3>
+            <ul class="registros-list" id="registrosList"></ul>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+    <script>
+        // Configuración de Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyDf8vATPio8BV9P3EvZ50jDo4W0o5dIbEE",
+            authDomain: "ingreso-y-egreso.firebaseapp.com",
+            projectId: "ingreso-y-egreso",
+            storageBucket: "ingreso-y-egreso.appspot.com",
+            messagingSenderId: "651695534663",
+            appId: "1:651695534663:web:8872a0ccc01fc98ea27762",
+            measurementId: "G-YZGLC6MMYM"
+        };
+
+        // Inicializar Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let usuarioActual = null;
+        let registroActivo = null;
+
+        // Verificar autenticación del usuario
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                usuarioActual = user;
+                document.getElementById("nombre").value = user.email;
+                document.getElementById("nombreMostrado").textContent = user.email;
+                cargarRegistrosDelDia();
+                calcularTotalHorasExtras();
+            } else {
+                window.location.href = "login.html";
+            }
+        });
+
+        // Función para cargar registros del día
+        function cargarRegistrosDelDia() {
+            const fechaActual = new Date().toLocaleDateString();
+            const registrosList = document.getElementById("registrosList");
+            registrosList.innerHTML = ""; // Limpiar la lista antes de cargar
+
+            db.collection("registros")
+                .where("fecha", "==", fechaActual)
+                .where("usuario", "==", usuarioActual.email)
+                .get()
+                .then((querySnapshot) => {
+                    querySnapshot.forEach((doc) => {
+                        const registro = doc.data();
+                        const li = document.createElement("li");
+                        li.textContent = `Fecha: ${registro.fecha} - Ingreso: ${registro.horaIngreso} - Salida: ${registro.horaSalida} (Horas: ${registro.horasTrabajadas}, Extras: ${registro.horasExtras})`;
+                        registrosList.appendChild(li);
+                    });
+                })
+                .catch((error) => {
+                    console.error("Error al cargar registros:", error);
+                });
+        }
+
+        // Función para marcar ingreso
+        function marcarIngreso() {
+            if (registroActivo) {
+                alert("Debes marcar la salida antes de registrar un nuevo ingreso.");
+                return;
+            }
+
+            const nombre = document.getElementById("nombre").value.trim();
+            if (nombre === "") {
+                alert("Por favor, ingrese su nombre antes de marcar ingreso.");
+                return;
+            }
+
+            const ingreso = new Date();
+            const registro = {
+                nombre: nombre,
+                horaIngreso: ingreso.toLocaleTimeString(),
+                horaSalida: "--:--:--",
+                horasTrabajadas: "0",
+                horasExtras: "0",
+                fecha: new Date().toLocaleDateString(),
+                usuario: usuarioActual.email,
+                estado: "activo"
+            };
+
+            db.collection("registros").add(registro)
+                .then((docRef) => {
+                    registroActivo = { id: docRef.id, ...registro };
+                    alert("Registro de ingreso guardado correctamente.");
+                    actualizarUI();
+                })
+                .catch((error) => {
+                    console.error("Error al guardar en Firebase:", error);
+                    alert(`Error al registrar ingreso: ${error.message}`);
+                });
+        }
+
+        // Función para marcar salida
+        function marcarSalida() {
+            if (!registroActivo) {
+                alert("No hay un ingreso registrado.");
+                return;
+            }
+
+            const salida = new Date();
+            const salidaHora = salida.toLocaleTimeString();
+            const { horasTrabajadas, horasExtras } = calcularHoras(registroActivo.horaIngreso, salidaHora);
+
+            db.collection("registros").doc(registroActivo.id).update({
+                horaSalida: salidaHora,
+                horasTrabajadas: horasTrabajadas.toFixed(2),
+                horasExtras: horasExtras.toFixed(2),
+                estado: "finalizado"
+            })
+            .then(() => {
+                alert("Salida registrada correctamente.");
+                registroActivo = null;
+                actualizarUI();
+            })
+            .catch((error) => {
+                console.error("Error al registrar salida:", error);
+                alert("Error al registrar salida.");
+            });
+        }
+
+        // Función para calcular horas
+        function calcularHoras(ingreso, salida) {
+            const tiempoIngreso = new Date(`1970-01-01T${ingreso}`);
+            const tiempoSalida = new Date(`1970-01-01T${salida}`);
+
+            if (isNaN(tiempoIngreso) || isNaN(tiempoSalida)) {
+                console.error("Formato de hora inválido");
+                return { horasTrabajadas: 0, horasExtras: 0 };
+            }
+
+            let horasTrabajadas = (tiempoSalida - tiempoIngreso) / 3600000; // Convertir ms a horas
+            let horasExtras = horasTrabajadas > 4 ? horasTrabajadas - 4 : 0;
+
+            return { horasTrabajadas, horasExtras };
+        }
+
+        // Función para calcular horas manualmente
+        function calcularHorasManuales() {
+            const horaIngresoManual = document.getElementById("horaIngresoManual").value;
+            const horaSalidaManual = document.getElementById("horaSalidaManual").value;
+
+            if (!horaIngresoManual || !horaSalidaManual) {
+                alert("Por favor, ingresa ambas horas (ingreso y salida).");
+                return;
+            }
+
+            const { horasTrabajadas, horasExtras } = calcularHoras(horaIngresoManual, horaSalidaManual);
+
+            // Mostrar resultados en la interfaz
+            document.getElementById("horasTrabajadas").textContent = horasTrabajadas.toFixed(2);
+            document.getElementById("horasExtras").textContent = horasExtras.toFixed(2);
+
+            alert(`Horas Trabajadas: ${horasTrabajadas.toFixed(2)}\nHoras Extras: ${horasExtras.toFixed(2)}`);
+        }
+
+        // Función para actualizar la interfaz
+        function actualizarUI() {
+            const statusMessage = document.getElementById("statusMessage");
+            if (statusMessage) {
+                statusMessage.textContent = registroActivo
+                    ? "Tienes un registro activo. Marca la salida cuando termines."
+                    : "No hay un registro activo. Marca el ingreso para comenzar.";
+            }
+        }
+
+        // Función para calcular el total de horas extras
+        function calcularTotalHorasExtras() {
+            db.collection("registros")
+                .where("usuario", "==", usuarioActual.email)
                 .get()
                 .then((querySnapshot) => {
                     let total = 0;
                     querySnapshot.forEach((doc) => {
                         const registro = doc.data();
-                        total += parseFloat(registro.horasExtras); // Sumar las horas extras
+                        const horasExtras = parseFloat(registro.horasExtras);
+                        if (!isNaN(horasExtras)) {
+                            total += horasExtras;
+                        }
                     });
-                    document.getElementById("totalHorasExtras").textContent = total.toFixed(2); // Mostrar el total
+                    document.getElementById("totalHorasExtras").textContent = total.toFixed(2);
                 })
                 .catch((error) => {
                     console.error("Error al calcular horas extras:", error);
                 });
         }
 
-        // Cerrar sesión y redirigir a index.html
+        // Función para cerrar sesión
         function cerrarSesion() {
             auth.signOut().then(() => {
-                window.location.href = "index.html"; // Redirigir a index.html
+                window.location.href = "index.html";
             }).catch((error) => {
                 console.error("Error al cerrar sesión:", error);
             });
