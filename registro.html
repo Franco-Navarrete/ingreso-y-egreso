@@ -235,9 +235,9 @@
         <p><strong>Horas Extras:</strong> <span id="horasExtras">0</span></p>
         <p><strong>Total Horas Extras:</strong> <span id="totalHorasExtras">0</span></p>
         <p id="statusMessage"></p>
-        <button class="ingreso-btn" onclick="marcarIngreso()">Marcar Ingreso</button>
-        <button class="salida-btn" onclick="marcarSalida()">Marcar Salida</button>
-        <button class="logout-btn" onclick="cerrarSesion()">Cerrar Sesión</button>
+        <button class="ingreso-btn" id="btnIngreso">Marcar Ingreso</button>
+        <button class="salida-btn" id="btnSalida">Marcar Salida</button>
+        <button class="logout-btn" id="btnLogout">Cerrar Sesión</button>
 
         <!-- Nuevos campos para edición manual -->
         <div class="manual-input">
@@ -246,7 +246,7 @@
             <input type="time" id="horaIngresoManual" placeholder="Hora de Ingreso">
             <label for="horaSalidaManual">Hora de Salida:</label>
             <input type="time" id="horaSalidaManual" placeholder="Hora de Salida">
-            <button class="calcular-btn" onclick="calcularHorasManuales()">Calcular Horas Manuales</button>
+            <button class="calcular-btn" id="btnCalcularManual">Calcular Horas Manuales</button>
         </div>
 
         <!-- Lista de registros del día -->
@@ -281,7 +281,38 @@
         let usuarioActual = null;
         let registroActivo = null;
 
-        // Verificar autenticación del usuario
+        // Obtener fecha en formato YYYY-MM-DD
+        function obtenerFechaActual() {
+            const hoy = new Date();
+            const año = hoy.getFullYear();
+            const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+            const dia = String(hoy.getDate()).padStart(2, '0');
+            return `${año}-${mes}-${dia}`;
+        }
+
+        // Función para calcular diferencia de horas con validación
+        function calcularDiferenciaHoras(horaInicio, horaFin) {
+            if (!horaInicio || !horaFin) return { horasTrabajadas: 0, horasExtras: 0 };
+            
+            const inicio = new Date(`1970-01-01T${horaInicio}`);
+            const fin = new Date(`1970-01-01T${horaFin}`);
+
+            if (isNaN(inicio) || isNaN(fin)) {
+                console.error("Formato de hora inválido");
+                return { horasTrabajadas: 0, horasExtras: 0 };
+            }
+
+            let diferencia = (fin - inicio) / (1000 * 60 * 60); // Convertir ms a horas
+            diferencia = diferencia > 0 ? diferencia : 0; // Evitar valores negativos
+            let horasExtras = diferencia > 8 ? diferencia - 8 : 0;
+
+            return { 
+                horasTrabajadas: diferencia,
+                horasExtras: horasExtras
+            };
+        }
+
+        // Verificar autenticación del usuario con manejo de redirección
         auth.onAuthStateChanged((user) => {
             if (user) {
                 usuarioActual = user;
@@ -289,26 +320,44 @@
                 document.getElementById("nombreMostrado").textContent = user.email;
                 cargarRegistrosDelDia();
                 calcularTotalHorasExtras();
+                
+                // Verificar si hay un registro activo
+                db.collection("registros")
+                    .where("usuario", "==", user.email)
+                    .where("estado", "==", "activo")
+                    .limit(1)
+                    .get()
+                    .then((querySnapshot) => {
+                        if (!querySnapshot.empty) {
+                            const doc = querySnapshot.docs[0];
+                            registroActivo = { id: doc.id, ...doc.data() };
+                            actualizarUI();
+                        }
+                    });
             } else {
-                window.location.href = "login.html";
+                // Redirigir a login.html solo si no estamos ya en esa página
+                if (!window.location.pathname.endsWith('login.html')) {
+                    window.location.href = "login.html";
+                }
             }
         });
 
-        // Función para cargar registros del día
+        // Función para cargar registros del día con formato de fecha estandarizado
         function cargarRegistrosDelDia() {
-            const fechaActual = new Date().toLocaleDateString();
+            const fechaActual = obtenerFechaActual();
             const registrosList = document.getElementById("registrosList");
             registrosList.innerHTML = ""; // Limpiar la lista antes de cargar
 
             db.collection("registros")
                 .where("fecha", "==", fechaActual)
                 .where("usuario", "==", usuarioActual.email)
+                .orderBy("horaIngreso", "desc")
                 .get()
                 .then((querySnapshot) => {
                     querySnapshot.forEach((doc) => {
                         const registro = doc.data();
                         const li = document.createElement("li");
-                        li.textContent = `Fecha: ${registro.fecha} - Ingreso: ${registro.horaIngreso} - Salida: ${registro.horaSalida} (Horas: ${registro.horasTrabajadas}, Extras: ${registro.horasExtras})`;
+                        li.textContent = `Ingreso: ${registro.horaIngreso} - Salida: ${registro.horaSalida} (Horas: ${registro.horasTrabajadas}, Extras: ${registro.horasExtras})`;
                         registrosList.appendChild(li);
                     });
                 })
@@ -337,7 +386,7 @@
                 horaSalida: "--:--:--",
                 horasTrabajadas: "0",
                 horasExtras: "0",
-                fecha: new Date().toLocaleDateString(),
+                fecha: obtenerFechaActual(),
                 usuario: usuarioActual.email,
                 estado: "activo"
             };
@@ -347,6 +396,7 @@
                     registroActivo = { id: docRef.id, ...registro };
                     alert("Registro de ingreso guardado correctamente.");
                     actualizarUI();
+                    cargarRegistrosDelDia();
                 })
                 .catch((error) => {
                     console.error("Error al guardar en Firebase:", error);
@@ -363,7 +413,7 @@
 
             const salida = new Date();
             const salidaHora = salida.toLocaleTimeString();
-            const { horasTrabajadas, horasExtras } = calcularHoras(registroActivo.horaIngreso, salidaHora);
+            const { horasTrabajadas, horasExtras } = calcularDiferenciaHoras(registroActivo.horaIngreso, salidaHora);
 
             db.collection("registros").doc(registroActivo.id).update({
                 horaSalida: salidaHora,
@@ -375,27 +425,13 @@
                 alert("Salida registrada correctamente.");
                 registroActivo = null;
                 actualizarUI();
+                cargarRegistrosDelDia();
+                calcularTotalHorasExtras();
             })
             .catch((error) => {
                 console.error("Error al registrar salida:", error);
                 alert("Error al registrar salida.");
             });
-        }
-
-        // Función para calcular horas
-        function calcularHoras(ingreso, salida) {
-            const tiempoIngreso = new Date(`1970-01-01T${ingreso}`);
-            const tiempoSalida = new Date(`1970-01-01T${salida}`);
-
-            if (isNaN(tiempoIngreso) || isNaN(tiempoSalida)) {
-                console.error("Formato de hora inválido");
-                return { horasTrabajadas: 0, horasExtras: 0 };
-            }
-
-            let horasTrabajadas = (tiempoSalida - tiempoIngreso) / 3600000; // Convertir ms a horas
-            let horasExtras = horasTrabajadas > 8 ? horasTrabajadas - 8 : 0;
-
-            return { horasTrabajadas, horasExtras };
         }
 
         // Función para calcular horas manualmente
@@ -408,7 +444,7 @@
                 return;
             }
 
-            const { horasTrabajadas, horasExtras } = calcularHoras(horaIngresoManual, horaSalidaManual);
+            const { horasTrabajadas, horasExtras } = calcularDiferenciaHoras(horaIngresoManual, horaSalidaManual);
 
             // Mostrar resultados en la interfaz
             document.getElementById("horasTrabajadas").textContent = horasTrabajadas.toFixed(2);
@@ -448,14 +484,25 @@
                 });
         }
 
-        // Función para cerrar sesión
+        // Función para cerrar sesión con manejo de errores
         function cerrarSesion() {
-            auth.signOut().then(() => {
-                window.location.href = "index.html";
-            }).catch((error) => {
-                console.error("Error al cerrar sesión:", error);
-            });
+            auth.signOut()
+                .then(() => {
+                    window.location.href = "login.html";
+                })
+                .catch((error) => {
+                    console.error("Error al cerrar sesión:", error);
+                    alert("Ocurrió un error al cerrar sesión. Por favor, inténtalo de nuevo.");
+                });
         }
+
+        // Asignar event listeners después de que el DOM esté cargado
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById("btnIngreso").addEventListener("click", marcarIngreso);
+            document.getElementById("btnSalida").addEventListener("click", marcarSalida);
+            document.getElementById("btnLogout").addEventListener("click", cerrarSesion);
+            document.getElementById("btnCalcularManual").addEventListener("click", calcularHorasManuales);
+        });
     </script>
 </body>
 </html>
